@@ -16,14 +16,15 @@ import java.nio.channels.SocketChannel
 abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     private var isUnexpectedDisConnection = false
-    protected var mInetSocketAddress: InetSocketAddress? = null
+
+    private var inetSocketAddress: InetSocketAddress? = null
 
     protected var mSocketChannel: SocketChannel? = null
 
     @Throws(OpenChannelException::class)
     protected open fun openChannel(ip: String?, port: Int) {
         isUnexpectedDisConnection = false
-        mInetSocketAddress = InetSocketAddress(ip, port)
+        inetSocketAddress = InetSocketAddress(ip, port)
         try {
             mSocketChannel = SocketChannel.open()
             mSocketChannel?.configureBlocking(false)
@@ -34,10 +35,10 @@ abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     @Throws(IOException::class)
     protected open fun connect() {
-        if (mSocketChannel == null || mInetSocketAddress == null) {
+        if (mSocketChannel == null || inetSocketAddress == null) {
             throw IOException("channel need open first")
         }
-        mSocketChannel?.connect(mInetSocketAddress)
+        mSocketChannel?.connect(inetSocketAddress)
     }
 
 }
