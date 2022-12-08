@@ -78,13 +78,22 @@ class TcpClient(context: Context) : AbsTcpClient(context){
                         val channel = selectorKey.channel() as? SocketChannel
                         if (channel?.isConnectionPending == true) {
                             // 当前socket已经连接成功，可以关闭
-                            channel.finishConnect()
+                            while(!channel.finishConnect()) {
+                                // 有可能当前通道还没连接完成，轮询去等待连接成功
+                            }
+
                             if (!isConnected(true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
+                            // 注册通道读操作
+                            mSocketChannel?.register(selector, SelectionKey.OP_READ or SelectionKey.OP_WRITE)
                         }
                         // 开始启动读写
+                        if (selectorKey.isReadable) {
 
+                        } else if (selectorKey.isWritable) {
+
+                        }
                     }
                 }
             }
@@ -96,7 +105,7 @@ class TcpClient(context: Context) : AbsTcpClient(context){
                     selector?.close()
                     selector = null
                 }
-                mSocketChannel!!.close()
+                mSocketChannel?.close()
                 mSocketChannel = null
             } catch (e: Throwable) {
                 Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")

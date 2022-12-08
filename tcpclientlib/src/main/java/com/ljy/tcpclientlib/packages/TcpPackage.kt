@@ -1,74 +1,46 @@
-package com.ljy.tcpclientlib.packages;
+package com.ljy.tcpclientlib.packages
 
-import com.ljy.tcpclientlib.packages.bodyLinked.AbsBodyLinked;
-import java.io.Serializable;
-import java.nio.ByteBuffer;
+import com.ljy.tcpclientlib.interfaces.IHeadPackage
+import com.ljy.tcpclientlib.packages.bodyLinked.AbsBodyLinked
+import java.io.Serializable
+import java.nio.ByteBuffer
 
-public class TcpPackage implements Serializable {
-    private HeadPackage mHeadPackage = null;
+class TcpPackage : Serializable {
+    var headPackage: HeadPackage? = null
+    var bodyPackage: BodyPackage? = null
+    var mkt: String? = null
+    val packageLength: Int
+        get() = IHeadPackage.LENGTH + (bodyPackage?.length ?: 0)
 
-    private BodyPackage mBodyPackage = null;
-    private String mkt;
-
-    public String getMkt() {
-        return mkt;
+    fun setHead(flags: Byte, code: Short, version: Byte, bodyLength: Int) {
+        headPackage?.appFlags = flags
+        headPackage?.protocolCode = code
+        headPackage?.protocolVersion = version
+        headPackage?.packageBodyLength = bodyLength
     }
 
-    public void setMkt(String mkt) {
-        this.mkt = mkt;
+    fun setBody(linked: AbsBodyLinked?) {
+        bodyPackage!!.setBodyBuffer(linked)
     }
 
-
-    public TcpPackage() {
-        mHeadPackage = new HeadPackage();
-        mBodyPackage = new BodyPackage();
-    }
-
-    public int getPackageLength() {
-        return mHeadPackage.LENGTH + mBodyPackage.getLength();
-    }
-
-    public void setHead(byte flags, short code, byte version, int bodyLength) {
-        mHeadPackage.setAppFlags(flags);
-        mHeadPackage.setProtocolCode(code);
-        mHeadPackage.setProtocolVersion(version);
-        mHeadPackage.setPackageBodyLength(bodyLength);
-    }
-
-    public void setBody(AbsBodyLinked linked) {
-        mBodyPackage.setBodyBuffer(linked);
-    }
-
-    public ByteBuffer toByteBuffer() {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(mHeadPackage.LENGTH + mBodyPackage.getLength());
-        byteBuffer.put((ByteBuffer) mHeadPackage.toByteBuffer().flip());
-        byteBuffer.position(mHeadPackage.LENGTH);
-        if (mBodyPackage.toByteBuffer() != null) {
-            byteBuffer.put((ByteBuffer) mBodyPackage.toByteBuffer().flip());
+    fun toByteBuffer(): ByteBuffer {
+        val byteBuffer = ByteBuffer.allocate(IHeadPackage.LENGTH + bodyPackage!!.length)
+        byteBuffer.put(headPackage?.toByteBuffer()?.flip() as ByteBuffer)
+        byteBuffer.position(IHeadPackage.LENGTH)
+        if (bodyPackage!!.toByteBuffer() != null) {
+            byteBuffer.put(bodyPackage!!.toByteBuffer()!!.flip() as ByteBuffer)
         }
-        return byteBuffer;
+        return byteBuffer
     }
 
-    public BodyPackage getBodyPackage() {
-        return mBodyPackage;
+    override fun toString(): String {
+        var result = ""
+        result = "head:" + headPackage + "  \tbody:" + bodyPackage + "mkt" + mkt
+        return result
     }
 
-    public HeadPackage getHeadPackage() {
-        return mHeadPackage;
-    }
-
-    public void setBodyPackage(BodyPackage bodyPackage) {
-        mBodyPackage = bodyPackage;
-    }
-
-    public void setHeadPackage(HeadPackage headPackage) {
-        mHeadPackage = headPackage;
-    }
-
-    @Override
-    public String toString() {
-        String result = "";
-        result = "head:" + mHeadPackage + "  \tbody:" + mBodyPackage + "mkt" + getMkt();
-        return result;
+    init {
+        headPackage = HeadPackage()
+        bodyPackage = BodyPackage()
     }
 }
