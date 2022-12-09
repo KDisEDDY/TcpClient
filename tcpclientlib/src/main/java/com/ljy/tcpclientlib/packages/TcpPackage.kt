@@ -5,10 +5,12 @@ import com.ljy.tcpclientlib.packages.bodyLinked.AbsBodyLinked
 import java.io.Serializable
 import java.nio.ByteBuffer
 
+/**
+ * 协定的tcp包，包头的长度固定（10 byte）， 包体长度在返回的包头内定义
+ */
 class TcpPackage : Serializable {
     var headPackage: HeadPackage? = null
     var bodyPackage: BodyPackage? = null
-    var mkt: String? = null
     val packageLength: Int
         get() = IHeadPackage.LENGTH + (bodyPackage?.length ?: 0)
 
@@ -20,23 +22,21 @@ class TcpPackage : Serializable {
     }
 
     fun setBody(linked: AbsBodyLinked?) {
-        bodyPackage!!.setBodyBuffer(linked)
+        bodyPackage?.setBodyBuffer(linked)
     }
 
     fun toByteBuffer(): ByteBuffer {
-        val byteBuffer = ByteBuffer.allocate(IHeadPackage.LENGTH + bodyPackage!!.length)
+        val byteBuffer = ByteBuffer.allocate(IHeadPackage.LENGTH + (bodyPackage?.length?:0))
         byteBuffer.put(headPackage?.toByteBuffer()?.flip() as ByteBuffer)
         byteBuffer.position(IHeadPackage.LENGTH)
-        if (bodyPackage!!.toByteBuffer() != null) {
-            byteBuffer.put(bodyPackage!!.toByteBuffer()!!.flip() as ByteBuffer)
+        if (bodyPackage?.toByteBuffer() != null) {
+            byteBuffer.put(bodyPackage?.toByteBuffer()?.flip() as ByteBuffer)
         }
         return byteBuffer
     }
 
     override fun toString(): String {
-        var result = ""
-        result = "head:" + headPackage + "  \tbody:" + bodyPackage + "mkt" + mkt
-        return result
+        return "head:$headPackage  \tbody:$bodyPackage"
     }
 
     init {

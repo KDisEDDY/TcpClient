@@ -2,6 +2,7 @@ package com.ljy.tcpclientlib
 
 import android.content.Context
 import android.util.Log
+import com.ljy.tcpclientlib.IO.NIO
 import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
 import java.io.IOException
 import java.nio.channels.AlreadyConnectedException
@@ -26,6 +27,8 @@ class TcpClient(context: Context) : AbsTcpClient(context){
     var selector: Selector? = null
 
     private val isConnection = AtomicBoolean(false)
+
+    private var nio: NIO? = null
 
     override fun connection(ip: String?, port: Int) {
         if (isConnection.compareAndSet(false, true)) {
@@ -85,15 +88,13 @@ class TcpClient(context: Context) : AbsTcpClient(context){
                             if (!isConnected(true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
-                            // 注册通道读操作
-                            mSocketChannel?.register(selector, SelectionKey.OP_READ or SelectionKey.OP_WRITE)
+                            // 注册通道读操作，在下一个轮询中启动读
+                            mSocketChannel?.register(selector, SelectionKey.OP_READ)
                         }
-                        // 开始启动读写
-                        if (selectorKey.isReadable) {
-
-                        } else if (selectorKey.isWritable) {
-
-                        }
+                    } else if (selectorKey?.isReadable == true) {
+                        readOps()
+                    } else if (selectorKey?.isWritable == true && hasReadyToWrite()) {
+                        writeOps()
                     }
                 }
             }
@@ -114,8 +115,31 @@ class TcpClient(context: Context) : AbsTcpClient(context){
 
     }
 
+    /**
+     * 判断是否有写入通道的数据，todo 之后通过队列数据结构来设置
+     */
+    private fun hasReadyToWrite() = false
+
     override fun disconnect() {
 
+    }
+
+    /**
+     * 读操作
+     */
+    private fun readOps() {
+        if (nio == null) {
+            nio = NIO(mSocketChannel)
+        }
+        nio?.read()?.let {
+            // 给到外部的接收器
+        }
+    }
+
+    private fun writeOps() {
+        if (nio == null) {
+            nio = NIO(mSocketChannel)
+        }
     }
 
     private fun isConnected(careNet: Boolean): Boolean {
