@@ -17,7 +17,7 @@ abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     private var isUnexpectedDisConnection = false
 
-    private var inetSocketAddress: InetSocketAddress? = null
+    var inetSocketAddress: InetSocketAddress? = null
 
     protected var mSocketChannel: SocketChannel? = null
 

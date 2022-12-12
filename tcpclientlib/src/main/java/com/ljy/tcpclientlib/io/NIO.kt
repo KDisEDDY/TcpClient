@@ -1,4 +1,4 @@
-package com.ljy.tcpclientlib.IO
+package com.ljy.tcpclientlib.io
 
 import android.os.SystemClock
 import android.util.Log
@@ -9,7 +9,6 @@ import com.ljy.tcpclientlib.packages.TcpPackage
 import com.ljy.tcpclientlib.packages.HeadPackage
 import com.ljy.tcpclientlib.packages.BodyPackage
 import com.ljy.tcpclientlib.exceptions.LostTcpByteException
-import com.ljy.tcpclientlib.interfaces.IHeadPackage
 import com.ljy.tcpclientlib.interfaces.IHeadPackage.Companion.LENGTH
 import java.io.IOException
 import java.lang.Exception

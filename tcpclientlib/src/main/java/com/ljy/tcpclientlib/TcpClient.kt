@@ -2,8 +2,10 @@ package com.ljy.tcpclientlib
 
 import android.content.Context
 import android.util.Log
-import com.ljy.tcpclientlib.IO.NIO
+import com.ljy.tcpclientlib.io.NIO
 import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
+import com.ljy.tcpclientlib.io.ThreadExecutorHelper
+import com.ljy.tcpclientlib.receiver.AbsReceiver
 import java.io.IOException
 import java.nio.channels.AlreadyConnectedException
 import java.nio.channels.ClosedChannelException
@@ -29,6 +31,8 @@ class TcpClient(context: Context) : AbsTcpClient(context){
     private val isConnection = AtomicBoolean(false)
 
     private var nio: NIO? = null
+    private var threadExecutorHelper = ThreadExecutorHelper()
+    private var absReceiver = AbsReceiver()
 
     override fun connection(ip: String?, port: Int) {
         if (isConnection.compareAndSet(false, true)) {
@@ -100,6 +104,7 @@ class TcpClient(context: Context) : AbsTcpClient(context){
             }
         } catch(e: Throwable) {
             Log.e(TAG, "listen connect fail ${e.message}")
+            isConnection.compareAndSet(true, false)
             try {
                 // 关闭读写
                 if (selector != null && selector?.isOpen == true) {
@@ -121,7 +126,19 @@ class TcpClient(context: Context) : AbsTcpClient(context){
     private fun hasReadyToWrite() = false
 
     override fun disconnect() {
-
+        try {
+            if (isConnection.compareAndSet(true, false)) {
+                // 关闭读写
+                if (selector != null && selector?.isOpen == true) {
+                    selector?.close()
+                    selector = null
+                }
+                mSocketChannel?.close()
+                mSocketChannel = null
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
+        }
     }
 
     /**
@@ -131,9 +148,9 @@ class TcpClient(context: Context) : AbsTcpClient(context){
         if (nio == null) {
             nio = NIO(mSocketChannel)
         }
-        nio?.read()?.let {
-            // 给到外部的接收器
-        }
+        // todo 这里实现是有问题的，有可能当前channel又开始要进行IO操作了，但当前的IO操作还没完成，
+        //  但又不能用线性队列来进行操作
+        threadExecutorHelper.execute(nio!!, absReceiver, inetSocketAddress!!, SelectionKey.OP_READ)
     }
 
     private fun writeOps() {
