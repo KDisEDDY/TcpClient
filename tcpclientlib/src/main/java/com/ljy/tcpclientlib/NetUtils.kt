@@ -3,6 +3,7 @@ package com.ljy.tcpclientlib
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import java.net.InetSocketAddress
 
 /**
  * @author Eddy.Liu
@@ -20,7 +21,9 @@ object NetUtils {
         } else {
             !(manager.activeNetworkInfo == null || manager.activeNetworkInfo?.isAvailable == false)
         }
-
-
     }
+
+    fun hashKey4INetSocketAddress(inetSocketAddress: InetSocketAddress) = (inetSocketAddress.hostName + inetSocketAddress.port).hashCode()
+
+    fun hashKey4INetSocketAddress(hostName: String?, port: Int) = (hostName + port).hashCode()
 }

@@ -3,6 +3,7 @@ package com.ljy.tcpclientlib.receiver
 import android.util.Log
 import com.ljy.tcpclientlib.Constant
 import java.nio.channels.SocketChannel
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -21,19 +22,28 @@ class SelectorThreadGroup(num: Int) {
 
     init {
         for(i in 0 until num) {
-            selectorThreads[i] = SelectorThread(this)
+            selectorThreads[i] = SelectorThread()
             Thread(selectorThreads[i]).start()
         }
     }
 
-    fun register(socketChannel: SocketChannel) {
+    fun register(id: Int, socketChannel: SocketChannel, responseDispatcher: ConcurrentHashMap<Int, ResponseHandler>) {
         try {
             val index = indexCtl.incrementAndGet() % selectorThreads.size
-            val chosenSelector = selectorThreads[index]
-            chosenSelector?.queue?.put(socketChannel)
-            chosenSelector?.selector?.wakeup()
+            selectorThreads[index]?.let {
+                it.channelId = id
+                it.responseDispatcher = responseDispatcher
+                it.queue.put(socketChannel)
+                it.selector.wakeup()
+            }
         } catch (e: InterruptedException) {
             Log.e(TAG, "${e.stackTrace}")
+        }
+    }
+
+    fun disconnect() {
+        selectorThreads.forEach {
+            it?.disconnect()
         }
     }
 

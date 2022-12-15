@@ -17,28 +17,36 @@ abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     private var isUnexpectedDisConnection = false
 
-    var inetSocketAddress: InetSocketAddress? = null
+    var inetSocketAddressMap = mutableMapOf<Int, InetSocketAddress>()
 
-    protected var mSocketChannel: SocketChannel? = null
+    private val socketChannelMap = mutableMapOf<Int, SocketChannel>()
 
     @Throws(OpenChannelException::class)
-    protected open fun openChannel(ip: String?, port: Int) {
+    protected open fun openChannel(ip: String?, port: Int): Int {
         isUnexpectedDisConnection = false
-        inetSocketAddress = InetSocketAddress(ip, port)
+        val inetSocketAddress = InetSocketAddress(ip, port)
+        val hashKey = NetUtils.hashKey4INetSocketAddress(inetSocketAddress)
+        inetSocketAddressMap[hashKey] = inetSocketAddress
         try {
-            mSocketChannel = SocketChannel.open()
-            mSocketChannel?.configureBlocking(false)
+            val socketChannel = SocketChannel.open()
+            socketChannel?.configureBlocking(false)
+            socketChannelMap[hashKey] = socketChannel
         } catch (e: IOException) {
             throw OpenChannelException(e)
         }
+        return hashKey
     }
 
     @Throws(IOException::class)
-    protected open fun connect() {
-        if (mSocketChannel == null || inetSocketAddress == null) {
+    protected open fun connect(id: Int) {
+        val socketChannel = socketChannelMap[id]
+        val inetSocketAddress = inetSocketAddressMap[id]
+        if (socketChannel == null || inetSocketAddress == null) {
             throw IOException("channel need open first")
         }
-        mSocketChannel?.connect(inetSocketAddress)
+        socketChannel.connect(inetSocketAddress)
     }
+
+    fun getSocketChannel(id: Int) = socketChannelMap[id]
 
 }

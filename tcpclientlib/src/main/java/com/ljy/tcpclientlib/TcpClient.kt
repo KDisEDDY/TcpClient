@@ -2,10 +2,10 @@ package com.ljy.tcpclientlib
 
 import android.content.Context
 import android.util.Log
-import com.ljy.tcpclientlib.io.NIO
 import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
-import com.ljy.tcpclientlib.io.ThreadExecutorHelper
-import com.ljy.tcpclientlib.receiver.AbsReceiver
+import com.ljy.tcpclientlib.interfaces.IResponseStateHandler
+import com.ljy.tcpclientlib.receiver.ResponseHandler
+import com.ljy.tcpclientlib.receiver.SelectorThreadGroup
 import java.io.IOException
 import java.nio.channels.AlreadyConnectedException
 import java.nio.channels.ClosedChannelException
@@ -13,7 +13,7 @@ import java.nio.channels.ConnectionPendingException
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.SocketChannel
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * @author Eddy.Liu
@@ -26,57 +26,64 @@ class TcpClient(context: Context) : AbsTcpClient(context){
         const val TAG = "${Constant.CLIENT_LOG}_TcpClient"
     }
 
-    var selector: Selector? = null
+    var connectSelector: Selector? = null
 
-    private val isConnection = AtomicBoolean(false)
+    private var selectorThreadGroup: SelectorThreadGroup? = null
 
-    private var nio: NIO? = null
-    private var threadExecutorHelper = ThreadExecutorHelper()
-    private var absReceiver = AbsReceiver()
+    private var responseDispatcher = ConcurrentHashMap<Int, ResponseHandler>()
 
     override fun connection(ip: String?, port: Int) {
-        if (isConnection.compareAndSet(false, true)) {
-            Thread {
-                var isHasException = false
-                // 调用 SelectorProvider 通过SPI机制 + 反射生成对应的Selector实例
-                try {
-                    openChannel(ip, port)
-                    selector = Selector.open()
-                } catch (e: IOException) {
-                    Log.e(TAG, "${e.stackTrace}")
-                    isHasException = true
-                }
+        // 这里还是有点问题，估计不能通过new线程来启动通道的连接操作，而是应该类似SelectThread一样，通过BlockQueue的方式调用连接，todo 之后再来改
+        Thread {
+            var isHasException = false
+            var id = 0
+            // 调用 SelectorProvider 通过SPI机制 + 反射生成对应的Selector实例
+            try {
+                id = openChannel(ip, port)
+                connectSelector = Selector.open()
+            } catch (e: IOException) {
+                Log.e(TAG, "${e.stackTrace}")
+                isHasException = true
+            }
 
-                try {
-                    mSocketChannel?.register(selector, SelectionKey.OP_CONNECT)
-                    connect()
-                } catch (e: AlreadyConnectedException) {
-                    Log.e(TAG, "this channel is already connected :" + e.message)
-                    isHasException = true
-                } catch (e: ConnectionPendingException) {
-                    Log.e(TAG, "a non-blocking connecting operation is already executing on this channel :" + e.message)
-                    isHasException = true
-                } catch (e: ClosedChannelException) {
-                    Log.e(TAG, "this channel is closed :" + e.message)
-                    isHasException = true
-                } catch (e: Exception) {
-                    Log.e(TAG, "connection failed :" + e.message)
-                    isHasException = true
-                }
+            try {
+                getSocketChannel(id)?.register(connectSelector, SelectionKey.OP_CONNECT)
+                connect(id)
+            } catch (e: AlreadyConnectedException) {
+                Log.e(TAG, "this channel is already connected :" + e.message)
+                isHasException = true
+            } catch (e: ConnectionPendingException) {
+                Log.e(TAG, "a non-blocking connecting operation is already executing on this channel :" + e.message)
+                isHasException = true
+            } catch (e: ClosedChannelException) {
+                Log.e(TAG, "this channel is closed :" + e.message)
+                isHasException = true
+            } catch (e: Exception) {
+                Log.e(TAG, "connection failed :" + e.message)
+                isHasException = true
+            }
 
-                if (!isHasException) {
-                    listenConnection()
-                }
-            }.start()
+            if (!isHasException) {
+                listenConnection(id)
+            }
+        }.start()
+    }
+
+    /**
+     * 热流，注册回调和有无数据流出无关
+     */
+    fun registerResponseHandler(id: Int, responseHandler: ResponseHandler) {
+        if (responseDispatcher[id] == null) {
+            responseDispatcher[id] = responseHandler
         }
     }
 
-    private fun listenConnection() {
+    private fun listenConnection(id: Int) {
         try {
             // 当前线程轮询，查询selector有哪些key可以
             while (true) {
-                selector?.select()
-                val iterator = selector?.selectedKeys()?.iterator()
+                connectSelector?.select()
+                val iterator = connectSelector?.selectedKeys()?.iterator()
                 while (iterator?.hasNext() != false) {
                     val selectorKey = iterator?.next()
                     iterator?.remove()
@@ -89,30 +96,25 @@ class TcpClient(context: Context) : AbsTcpClient(context){
                                 // 有可能当前通道还没连接完成，轮询去等待连接成功
                             }
 
-                            if (!isConnected(true)) {
+                            if (!isConnected(id, true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
-                            // 注册通道读操作，在下一个轮询中启动读
-                            mSocketChannel?.register(selector, SelectionKey.OP_READ)
+                            //通过 SelectThreadGroup注册通道读操作，在单独线程里面启动读写
+                            getSocketChannel(id)?.let {
+                                selectorThreadGroup?.register(id, it, responseDispatcher)
+                            }
                         }
-                    } else if (selectorKey?.isReadable == true) {
-                        readOps()
-                    } else if (selectorKey?.isWritable == true && hasReadyToWrite()) {
-                        writeOps()
                     }
                 }
             }
         } catch(e: Throwable) {
             Log.e(TAG, "listen connect fail ${e.message}")
-            isConnection.compareAndSet(true, false)
             try {
                 // 关闭读写
-                if (selector != null && selector?.isOpen == true) {
-                    selector?.close()
-                    selector = null
+                if (connectSelector != null && connectSelector?.isOpen == true) {
+                    connectSelector?.close()
+                    connectSelector = null
                 }
-                mSocketChannel?.close()
-                mSocketChannel = null
             } catch (e: Throwable) {
                 Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
             }
@@ -127,40 +129,19 @@ class TcpClient(context: Context) : AbsTcpClient(context){
 
     override fun disconnect() {
         try {
-            if (isConnection.compareAndSet(true, false)) {
-                // 关闭读写
-                if (selector != null && selector?.isOpen == true) {
-                    selector?.close()
-                    selector = null
-                }
-                mSocketChannel?.close()
-                mSocketChannel = null
+            // 关闭读写
+            if (connectSelector != null && connectSelector?.isOpen == true) {
+                connectSelector?.close()
+                connectSelector = null
             }
+            selectorThreadGroup?.disconnect()
         } catch (e: Throwable) {
             Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
         }
     }
 
-    /**
-     * 读操作
-     */
-    private fun readOps() {
-        if (nio == null) {
-            nio = NIO(mSocketChannel)
-        }
-        // todo 这里实现是有问题的，有可能当前channel又开始要进行IO操作了，但当前的IO操作还没完成，
-        //  但又不能用线性队列来进行操作
-        threadExecutorHelper.execute(nio!!, absReceiver, inetSocketAddress!!, SelectionKey.OP_READ)
-    }
-
-    private fun writeOps() {
-        if (nio == null) {
-            nio = NIO(mSocketChannel)
-        }
-    }
-
-    private fun isConnected(careNet: Boolean): Boolean {
-        return mSocketChannel?.isConnected == true && if (careNet) NetUtils.netIsAvailable(context) else true
+    private fun isConnected(id: Int, careNet: Boolean): Boolean {
+        return getSocketChannel(id)?.isConnected == true && if (careNet) NetUtils.netIsAvailable(context) else true
     }
 
 

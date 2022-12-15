@@ -3,7 +3,7 @@ package com.ljy.tcpclientlib.interfaces
 import android.content.Context
 import com.ljy.tcpclientlib.packages.TcpPackage
 
-interface ISocketResponseHandler {
+interface IResponseStateHandler {
     fun onSocketIOThreadStart(context: Context?, mkt: String?)
     fun onSocketIOThreadShutdown(context: Context?, mkt: String?)
     fun onSocketDisconnection(context: Context?, mkt: String?, isUnexpectedDisconnection: Boolean)

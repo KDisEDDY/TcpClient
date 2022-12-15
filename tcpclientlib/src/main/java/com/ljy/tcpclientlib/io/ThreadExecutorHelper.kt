@@ -1,7 +1,5 @@
 package com.ljy.tcpclientlib.io
 
-import com.ljy.tcpclientlib.receiver.AbsReceiver
-import java.net.InetSocketAddress
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -14,14 +12,14 @@ class ThreadExecutorHelper {
 
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
-    fun execute(nio: NIO, absReceiver: AbsReceiver, inetSocketAddress: InetSocketAddress, Ops: Int) {
-        executorService.execute {
-            nio.read()?.let {
-                // 给到外部的接收器
-                absReceiver.onTcpPackageResponse(inetSocketAddress, it, Ops)
-            }
-        }
-    }
+//    fun execute(nio: NIO, absReceiver: AbsReceiver, inetSocketAddress: InetSocketAddress, Ops: Int) {
+//        executorService.execute {
+//            nio.read()?.let {
+//                // 给到外部的接收器
+//                absReceiver.onTcpPackageResponse(inetSocketAddress, it, Ops)
+//            }
+//        }
+//    }
 
 
 
