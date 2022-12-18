@@ -1,5 +1,6 @@
 package com.ljy.tcpclientlib.interfaces
 
+import com.ljy.tcpclientlib.Connection
 import java.lang.Exception
 
 /**
@@ -7,5 +8,5 @@ import java.lang.Exception
  */
 interface IConnection {
     @Throws(Exception::class)
-    fun connection(ip: String?, port: Int)
+    fun connection(connection: Connection)
 }

@@ -7,5 +7,4 @@ import com.ljy.tcpclientlib.receiver.ResponseHandler
  * @Date 2022/12/15
  * @Description
  **/
-class Connection(ip: String?, port: Int, channelId: Int, responseHandler: ResponseHandler) {
-}
+data class Connection(val ip: String?, val port: Int, val channelId: Int, val responseHandler: ResponseHandler?)

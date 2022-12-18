@@ -4,6 +4,7 @@ import android.content.Context
 import com.ljy.tcpclientlib.exceptions.OpenChannelException
 import com.ljy.tcpclientlib.interfaces.IConnection
 import com.ljy.tcpclientlib.interfaces.IDisconnect
+import com.ljy.tcpclientlib.receiver.SelectorThreadGroup
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
@@ -13,28 +14,32 @@ import java.nio.channels.SocketChannel
  * @Date 2022/12/7
  * @Description client的接口
  **/
-abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
+abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnection, IDisconnect {
 
     private var isUnexpectedDisConnection = false
 
-    var inetSocketAddressMap = mutableMapOf<Int, InetSocketAddress>()
+    protected var selectorThreadGroup: SelectorThreadGroup? = null
+
+    private var inetSocketAddressMap = mutableMapOf<Int, InetSocketAddress>()
 
     private val socketChannelMap = mutableMapOf<Int, SocketChannel>()
 
+    init {
+        selectorThreadGroup = SelectorThreadGroup(channelNum)
+    }
+
     @Throws(OpenChannelException::class)
-    protected open fun openChannel(ip: String?, port: Int): Int {
+    protected open fun openChannel(connection: Connection) {
         isUnexpectedDisConnection = false
-        val inetSocketAddress = InetSocketAddress(ip, port)
-        val hashKey = NetUtils.hashKey4INetSocketAddress(inetSocketAddress)
-        inetSocketAddressMap[hashKey] = inetSocketAddress
+        val inetSocketAddress = InetSocketAddress(connection.ip, connection.port)
+        inetSocketAddressMap[connection.channelId] = inetSocketAddress
         try {
             val socketChannel = SocketChannel.open()
             socketChannel?.configureBlocking(false)
-            socketChannelMap[hashKey] = socketChannel
+            socketChannelMap[connection.channelId] = socketChannel
         } catch (e: IOException) {
             throw OpenChannelException(e)
         }
-        return hashKey
     }
 
     @Throws(IOException::class)

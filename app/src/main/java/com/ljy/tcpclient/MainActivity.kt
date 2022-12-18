@@ -11,6 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.ljy.tcpclient.ui.theme.TcpClientTheme
+import com.ljy.tcpclientlib.Connection
+import com.ljy.tcpclientlib.TcpClient
+import com.ljy.tcpclientlib.packages.TcpPackage
+import com.ljy.tcpclientlib.receiver.ResponseHandler
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,6 +31,21 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    fun connectToServer() {
+        TcpClient(this, 3).apply {
+            connection(Connection("127.0.0.1", 1004, 1004, object : ResponseHandler{
+                override fun onWriteResponse(tcpPackage: TcpPackage) {
+
+                }
+
+                override fun onReadResponse(tcpPackage: TcpPackage) {
+
+                }
+
+            }))
+        }
+    }
 }
 
 @Composable
@@ -34,7 +53,6 @@ fun Greeting(name: String) {
     Text(text = "Hello $name!")
 }
 
-@Preview(showBackground = true)
 @Composable
 fun DefaultPreview() {
     TcpClientTheme {

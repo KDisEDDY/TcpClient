@@ -20,26 +20,23 @@ import java.util.concurrent.ConcurrentHashMap
  * @Date 2022/12/8
  * @Description
  **/
-class TcpClient(context: Context) : AbsTcpClient(context){
+class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
 
     companion object {
         const val TAG = "${Constant.CLIENT_LOG}_TcpClient"
     }
 
-    var connectSelector: Selector? = null
-
-    private var selectorThreadGroup: SelectorThreadGroup? = null
+    private var connectSelector: Selector? = null
 
     private var responseDispatcher = ConcurrentHashMap<Int, ResponseHandler>()
 
-    override fun connection(ip: String?, port: Int) {
+    override fun connection(connection: Connection) {
         // 这里还是有点问题，估计不能通过new线程来启动通道的连接操作，而是应该类似SelectThread一样，通过BlockQueue的方式调用连接，todo 之后再来改
         Thread {
             var isHasException = false
-            var id = 0
             // 调用 SelectorProvider 通过SPI机制 + 反射生成对应的Selector实例
             try {
-                id = openChannel(ip, port)
+                openChannel(connection)
                 connectSelector = Selector.open()
             } catch (e: IOException) {
                 Log.e(TAG, "${e.stackTrace}")
@@ -47,8 +44,8 @@ class TcpClient(context: Context) : AbsTcpClient(context){
             }
 
             try {
-                getSocketChannel(id)?.register(connectSelector, SelectionKey.OP_CONNECT)
-                connect(id)
+                getSocketChannel(connection.channelId)?.register(connectSelector, SelectionKey.OP_CONNECT)
+                connect(connection.channelId)
             } catch (e: AlreadyConnectedException) {
                 Log.e(TAG, "this channel is already connected :" + e.message)
                 isHasException = true
@@ -64,7 +61,10 @@ class TcpClient(context: Context) : AbsTcpClient(context){
             }
 
             if (!isHasException) {
-                listenConnection(id)
+                connection.responseHandler?.let {
+                    registerResponseHandler(connection.channelId, it)
+                }
+                listenConnection(connection.channelId)
             }
         }.start()
     }
@@ -72,7 +72,7 @@ class TcpClient(context: Context) : AbsTcpClient(context){
     /**
      * 热流，注册回调和有无数据流出无关
      */
-    fun registerResponseHandler(id: Int, responseHandler: ResponseHandler) {
+    private fun registerResponseHandler(id: Int, responseHandler: ResponseHandler) {
         if (responseDispatcher[id] == null) {
             responseDispatcher[id] = responseHandler
         }
@@ -143,6 +143,5 @@ class TcpClient(context: Context) : AbsTcpClient(context){
     private fun isConnected(id: Int, careNet: Boolean): Boolean {
         return getSocketChannel(id)?.isConnected == true && if (careNet) NetUtils.netIsAvailable(context) else true
     }
-
 
 }
