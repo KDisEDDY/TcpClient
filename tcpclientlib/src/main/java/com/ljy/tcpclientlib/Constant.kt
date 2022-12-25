@@ -7,5 +7,5 @@ package com.ljy.tcpclientlib
  **/
 object Constant {
 
-    const val CLIENT_LOG = "TcpClient"
+    const val CLIENT_LOG = "EDDYTcpClient"
 }

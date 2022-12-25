@@ -36,7 +36,7 @@ class SelectorThread : Runnable {
             queue = LinkedBlockingQueue()
 
         } catch (t: Throwable) {
-            Log.e(TAG, "init failed ${t.stackTrace}")
+            Log.e(TAG, "init failed ${t.message}")
         }
     }
 
@@ -72,17 +72,20 @@ class SelectorThread : Runnable {
                 }
             }
         } catch (t: Throwable) {
-            Log.e(TAG, "run thread failed ${t.stackTrace}")
+            Log.e(TAG, "run thread failed ${t.message}")
         }
 
 
     }
 
-    fun disconnect() {
+    fun disconnect(isNeedRemoveHandler: Boolean = false) {
         if (selector.isOpen && isConnection.compareAndSet(true, false)) {
             selector.close()
             socketChannel?.close()
             socketChannel = null
+            if (isNeedRemoveHandler) {
+                responseDispatcher?.remove(channelId)
+            }
         }
     }
 

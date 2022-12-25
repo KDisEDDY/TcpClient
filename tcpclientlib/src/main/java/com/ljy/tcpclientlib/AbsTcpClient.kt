@@ -4,10 +4,12 @@ import android.content.Context
 import com.ljy.tcpclientlib.exceptions.OpenChannelException
 import com.ljy.tcpclientlib.interfaces.IConnection
 import com.ljy.tcpclientlib.interfaces.IDisconnect
+import com.ljy.tcpclientlib.receiver.ResponseHandler
 import com.ljy.tcpclientlib.receiver.SelectorThreadGroup
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * @author Eddy.Liu
@@ -24,12 +26,15 @@ abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnec
 
     private val socketChannelMap = mutableMapOf<Int, SocketChannel>()
 
+    var responseDispatcher = ConcurrentHashMap<Int, ResponseHandler>()
+
+
     init {
         selectorThreadGroup = SelectorThreadGroup(channelNum)
     }
 
     @Throws(OpenChannelException::class)
-    protected open fun openChannel(connection: Connection) {
+    open fun openChannel(connection: Connection) {
         isUnexpectedDisConnection = false
         val inetSocketAddress = InetSocketAddress(connection.ip, connection.port)
         inetSocketAddressMap[connection.channelId] = inetSocketAddress
@@ -43,7 +48,7 @@ abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnec
     }
 
     @Throws(IOException::class)
-    protected open fun connect(id: Int) {
+    open fun connect(id: Int) {
         val socketChannel = socketChannelMap[id]
         val inetSocketAddress = inetSocketAddressMap[id]
         if (socketChannel == null || inetSocketAddress == null) {
@@ -53,5 +58,15 @@ abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnec
     }
 
     fun getSocketChannel(id: Int) = socketChannelMap[id]
+
+    /**
+     * 热流，注册回调和有无数据流出无关
+     */
+    fun registerResponseHandler(id: Int, responseHandler: ResponseHandler): Boolean {
+        return if (responseDispatcher[id] == null) {
+            responseDispatcher[id] = responseHandler
+            true
+        } else false
+    }
 
 }

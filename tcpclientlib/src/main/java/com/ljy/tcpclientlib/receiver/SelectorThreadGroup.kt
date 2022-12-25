@@ -41,9 +41,9 @@ class SelectorThreadGroup(num: Int) {
         }
     }
 
-    fun disconnect() {
+    fun disconnect(isNeedRemoveHandler: Boolean = false) {
         selectorThreads.forEach {
-            it?.disconnect()
+            it?.disconnect(isNeedRemoveHandler)
         }
     }
 
