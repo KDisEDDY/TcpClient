@@ -16,7 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
  * @Date 2022/12/7
  * @Description client的接口
  **/
-abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnection, IDisconnect {
+abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     private var isUnexpectedDisConnection = false
 
@@ -30,7 +30,7 @@ abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnec
 
 
     init {
-        selectorThreadGroup = SelectorThreadGroup(channelNum)
+        selectorThreadGroup = SelectorThreadGroup()
     }
 
     @Throws(OpenChannelException::class)

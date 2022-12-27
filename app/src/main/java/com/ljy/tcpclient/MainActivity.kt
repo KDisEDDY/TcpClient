@@ -38,14 +38,14 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun buildTcpClient() {
-        tcpClient = TcpClient(this, 3)
+        tcpClient = TcpClient(this)
     }
 
     @Preview
     @Composable
     fun ButtonLayout() {
         var text by remember {
-            mutableStateOf("192.168.31.6")
+            mutableStateOf("10.9.30.63")
         }
         ConstraintLayout {
             val (ipText, buttonLayout) = createRefs()
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 TextButton(onClick = {
-                    tcpClient.disconnect()
+                    tcpClient.disconnectAll()
                 }) {
                     Text("disconnect to server")
                 }

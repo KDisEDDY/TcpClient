@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * @Date 2022/12/8
  * @Description
  **/
-class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
+class TcpClient(context: Context) : AbsTcpClient(context){
 
     companion object {
         const val TAG = "${Constant.CLIENT_LOG}_TcpClient"
@@ -20,21 +20,23 @@ class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
     private var isStartThread = AtomicBoolean(false)
 
     private var connectBlockQueue = LinkedBlockingQueue<Connection>()
-    private var connectThread = ConnectThread(context, this)
+    private var connectThread: ConnectThread? = null
 
     override fun connection(connection: Connection) {
-        connectBlockQueue.put(connection)
         if (isStartThread.compareAndSet(false, true)) {
             loop()
         }
+        connectBlockQueue.put(connection)
     }
 
     /**
      * 单线程轮询connect操作，通过BlockQueue调用连接
      */
     private fun loop() {
-        connectThread.initConfig()
-        connectThread.start()
+        connectThread = ConnectThread(context, this, connectBlockQueue).apply {
+            initConfig()
+            start()
+        }
     }
 
     /**
@@ -42,10 +44,19 @@ class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
      */
     private fun hasReadyToWrite() = false
 
-    override fun disconnect() {
+    override fun disconnect(channelId: Int) {
         try {
             // 关闭连接线程
-            connectThread.interrupt()
+            selectorThreadGroup?.disconnect(channelId)
+        } catch (e: Throwable) {
+            Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
+        }
+    }
+
+    override fun disconnectAll() {
+        try {
+            // 关闭连接线程
+            connectThread?.interrupt()
             selectorThreadGroup?.disconnect()
             isStartThread.set(false)
         } catch (e: Throwable) {

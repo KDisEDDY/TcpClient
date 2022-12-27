@@ -6,20 +6,19 @@ import java.nio.channels.SocketChannel
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * @author Eddy.Liu
  * @Date 2022/12/14
  * @Description
  **/
-class SelectorThreadGroup(num: Int) {
+class SelectorThreadGroup() {
 
     companion object {
         private const val TAG = "${Constant.CLIENT_LOG}_SelectorThreadGroup"
     }
 
-    private val selectorThreads = ConcurrentHashMap<Int, SelectorThread>(num)
+    private val selectorThreads = ConcurrentHashMap<Int, WorkerRunnable>()
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
 //    init {
@@ -31,7 +30,7 @@ class SelectorThreadGroup(num: Int) {
 
     fun register(id: Int, socketChannel: SocketChannel, responseDispatcher: ConcurrentHashMap<Int, ResponseHandler>) {
         try {
-            selectorThreads[id] = SelectorThread()
+            selectorThreads[id] = WorkerRunnable()
             executorService.execute(selectorThreads[id])
             selectorThreads[id]?.let {
                 it.channelId = id
@@ -47,6 +46,14 @@ class SelectorThreadGroup(num: Int) {
     fun disconnect(isNeedRemoveHandler: Boolean = false) {
         selectorThreads.forEach {
             it.value.disconnect(isNeedRemoveHandler)
+        }
+    }
+
+    fun disconnect(id: Int) {
+        selectorThreads.forEach {
+            if (it.key == id) {
+                it.value.disconnect(true)
+            }
         }
     }
 

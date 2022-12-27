@@ -8,16 +8,18 @@ import java.io.IOException
 import java.nio.channels.*
 import java.util.concurrent.LinkedBlockingQueue
 
-class ConnectThread(private val context: Context, private val tcpClient: AbsTcpClient):
+class ConnectThread(private val context: Context, private val tcpClient: AbsTcpClient, private val connectBlockQueue: LinkedBlockingQueue<Connection>):
     Thread() {
     companion object {
         private const val TAG = "${Constant.CLIENT_LOG}_ConnectThread"
     }
     private var connectSelector: Selector? = null
-    private var connectBlockQueue = LinkedBlockingQueue<Connection>()
 
-
+    /**
+     * init the thread for loop
+     */
     fun initConfig() {
+        connectBlockQueue.clear()
         connectSelector = Selector.open()
     }
 
@@ -32,7 +34,14 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
             }
             var isHasException = false
             // 调用 SelectorProvider 通过SPI机制 + 反射生成对应的Selector实例
-            val connection = connectBlockQueue.take()
+
+            val connection = try {
+                connectBlockQueue.take()
+            } catch (e: InterruptedException) {
+                Log.d(TAG, "InterruptedException, ${e.message}")
+                interruptConnection()
+                return
+            }
             if (tcpClient.hasSetResponseHandler(connection.channelId)) {
                 Log.d(TAG, "hasSetResponseHandler, continue")
                 continue
@@ -40,7 +49,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
             try {
                 tcpClient.openChannel(connection)
             } catch (e: IOException) {
-                Log.e(TcpClient.TAG, "${e.stackTrace}")
+                Log.e(TAG, "${e.stackTrace}")
                 isHasException = true
             }
 
@@ -52,19 +61,19 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                 // 由于是异步模式，链接成功的判断不准确
                 tcpClient.connect(connection.channelId)
             } catch (e: AlreadyConnectedException) {
-                Log.e(TcpClient.TAG, "this channel is already connected :" + e.message)
+                Log.e(TAG, "this channel is already connected :" + e.message)
                 isHasException = true
             } catch (e: ConnectionPendingException) {
                 Log.e(
-                    TcpClient.TAG,
+                    TAG,
                     "a non-blocking connecting operation is already executing on this channel :" + e.message
                 )
                 isHasException = true
             } catch (e: ClosedChannelException) {
-                Log.e(TcpClient.TAG, "this channel is closed :" + e.message)
+                Log.e(TAG, "this channel is closed :" + e.message)
                 isHasException = true
             } catch (e: Exception) {
-                Log.e(TcpClient.TAG, "connection failed :" + e.message)
+                Log.e(TAG, "connection failed :" + e.message)
                 isHasException = true
             }
 
@@ -85,7 +94,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                 connectSelector?.select()
                 val iterator = connectSelector?.selectedKeys()?.iterator()
                 while (iterator?.hasNext() != false) {
-                    Log.i(TcpClient.TAG, "listen to connection channelId: $id")
+                    Log.i(TAG, "listen to connection channelId: $id")
                     val selectorKey = iterator?.next()
                     iterator?.remove()
                     // 当前有可连接事件 且连接已ready
@@ -101,14 +110,14 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                                 throw ConnectionFailedException("maybe network is not available")
                             }
                             tcpClient.registerWorkerThread(id)
-                            Log.i(TcpClient.TAG, "connect success")
+                            Log.i(TAG, "connect success")
                         }
                     }
                 }
                 return
             }
         } catch(e: Throwable) {
-            Log.e(TcpClient.TAG, "listen connect fail ${e.message}")
+            Log.e(TAG, "listen connect fail ${e.message}")
             try {
                 // 关闭读写
                 if (connectSelector != null && connectSelector?.isOpen == true) {
@@ -117,7 +126,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                     tcpClient.responseDispatcher.remove(id)
                 }
             } catch (e: Throwable) {
-                Log.e(TcpClient.TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
+                Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
             }
         }
     }
@@ -134,7 +143,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                 tcpClient.responseDispatcher.clear()
             }
         } catch (e: Throwable) {
-            Log.e(TcpClient.TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
+            Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
         }
     }
 

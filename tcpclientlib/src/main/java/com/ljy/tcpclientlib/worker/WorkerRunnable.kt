@@ -2,7 +2,11 @@ package com.ljy.tcpclientlib.worker
 
 import android.util.Log
 import com.ljy.tcpclientlib.Constant
+import com.ljy.tcpclientlib.TcpClient
 import com.ljy.tcpclientlib.io.NIO
+import com.ljy.tcpclientlib.seeker.ConnectThread
+import java.nio.channels.ClosedChannelException
+import java.nio.channels.ClosedSelectorException
 import java.nio.channels.SelectionKey
 import java.nio.channels.Selector
 import java.nio.channels.SocketChannel
@@ -13,12 +17,12 @@ import java.util.concurrent.atomic.AtomicBoolean
 /**
  * @author Eddy.Liu
  * @Date 2022/12/14
- * @Description
+ * @Description 读写操作的实际task类
  **/
-class SelectorThread : Runnable {
+class WorkerRunnable : Runnable {
 
     companion object {
-        private const val TAG = "${Constant.CLIENT_LOG}_SelectorThread"
+        private const val TAG = "${Constant.CLIENT_LOG}_WorkerRunnable"
     }
     lateinit var selector: Selector
         private set
@@ -71,6 +75,10 @@ class SelectorThread : Runnable {
                     }
                 }
             }
+        }  catch (e: ClosedChannelException) {
+            Log.e(TAG, "this channel is closed :" + e.message)
+        } catch (e: ClosedSelectorException) {
+            Log.e(TAG, "this selector is closed :" + e.message)
         } catch (t: Throwable) {
             Log.e(TAG, "run thread failed ${t.message}")
         }
