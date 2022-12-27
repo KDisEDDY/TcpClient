@@ -1,4 +1,4 @@
-package com.ljy.tcpclientlib.receiver
+package com.ljy.tcpclientlib.worker
 
 import android.util.Log
 import com.ljy.tcpclientlib.Constant

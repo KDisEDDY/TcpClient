@@ -1,9 +1,11 @@
-package com.ljy.tcpclientlib.receiver
+package com.ljy.tcpclientlib.worker
 
 import android.util.Log
 import com.ljy.tcpclientlib.Constant
 import java.nio.channels.SocketChannel
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -17,20 +19,21 @@ class SelectorThreadGroup(num: Int) {
         private const val TAG = "${Constant.CLIENT_LOG}_SelectorThreadGroup"
     }
 
-    private val selectorThreads = arrayOfNulls<SelectorThread>(num)
-    private val indexCtl = AtomicInteger(0)
+    private val selectorThreads = ConcurrentHashMap<Int, SelectorThread>(num)
+    private val executorService: ExecutorService = Executors.newCachedThreadPool()
 
-    init {
-        for(i in 0 until num) {
-            selectorThreads[i] = SelectorThread()
-            Thread(selectorThreads[i]).start()
-        }
-    }
+//    init {
+//        for(i in 0 until num) {
+//            selectorThreads[i] = SelectorThread()
+//            Thread(selectorThreads[i]).start()
+//        }
+//    }
 
     fun register(id: Int, socketChannel: SocketChannel, responseDispatcher: ConcurrentHashMap<Int, ResponseHandler>) {
         try {
-            val index = indexCtl.incrementAndGet() % selectorThreads.size
-            selectorThreads[index]?.let {
+            selectorThreads[id] = SelectorThread()
+            executorService.execute(selectorThreads[id])
+            selectorThreads[id]?.let {
                 it.channelId = id
                 it.responseDispatcher = responseDispatcher
                 it.queue.put(socketChannel)
@@ -43,7 +46,7 @@ class SelectorThreadGroup(num: Int) {
 
     fun disconnect(isNeedRemoveHandler: Boolean = false) {
         selectorThreads.forEach {
-            it?.disconnect(isNeedRemoveHandler)
+            it.value.disconnect(isNeedRemoveHandler)
         }
     }
 

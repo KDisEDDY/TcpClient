@@ -4,8 +4,8 @@ import android.content.Context
 import com.ljy.tcpclientlib.exceptions.OpenChannelException
 import com.ljy.tcpclientlib.interfaces.IConnection
 import com.ljy.tcpclientlib.interfaces.IDisconnect
-import com.ljy.tcpclientlib.receiver.ResponseHandler
-import com.ljy.tcpclientlib.receiver.SelectorThreadGroup
+import com.ljy.tcpclientlib.worker.ResponseHandler
+import com.ljy.tcpclientlib.worker.SelectorThreadGroup
 import java.io.IOException
 import java.net.InetSocketAddress
 import java.nio.channels.SocketChannel
@@ -69,4 +69,14 @@ abstract class AbsTcpClient(val context: Context, val channelNum: Int) : IConnec
         } else false
     }
 
+    fun hasSetResponseHandler(id: Int): Boolean {
+        return responseDispatcher[id] != null
+    }
+
+    fun registerWorkerThread(id: Int) {
+        //通过 SelectThreadGroup注册通道读操作，在单独线程里面启动读写
+        getSocketChannel(id)?.let {
+            selectorThreadGroup?.register(id, it, responseDispatcher)
+        }
+    }
 }

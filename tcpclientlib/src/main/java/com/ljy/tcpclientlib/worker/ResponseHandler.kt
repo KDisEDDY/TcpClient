@@ -1,4 +1,4 @@
-package com.ljy.tcpclientlib.receiver
+package com.ljy.tcpclientlib.worker
 
 import com.ljy.tcpclientlib.packages.TcpPackage
 

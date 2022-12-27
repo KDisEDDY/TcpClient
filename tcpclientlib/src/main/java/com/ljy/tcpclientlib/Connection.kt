@@ -1,6 +1,6 @@
 package com.ljy.tcpclientlib
 
-import com.ljy.tcpclientlib.receiver.ResponseHandler
+import com.ljy.tcpclientlib.worker.ResponseHandler
 
 /**
  * @author Eddy.Liu

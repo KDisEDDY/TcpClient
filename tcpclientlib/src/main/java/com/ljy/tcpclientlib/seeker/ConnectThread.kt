@@ -2,31 +2,41 @@ package com.ljy.tcpclientlib.seeker
 
 import android.content.Context
 import android.util.Log
-import com.ljy.tcpclientlib.AbsTcpClient
-import com.ljy.tcpclientlib.Connection
-import com.ljy.tcpclientlib.NetUtils
-import com.ljy.tcpclientlib.TcpClient
+import com.ljy.tcpclientlib.*
 import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
-import com.ljy.tcpclientlib.receiver.SelectorThreadGroup
 import java.io.IOException
 import java.nio.channels.*
 import java.util.concurrent.LinkedBlockingQueue
 
-class ConnectThread(private val context: Context, channelNum: Int, private val tcpClient: AbsTcpClient):
+class ConnectThread(private val context: Context, private val tcpClient: AbsTcpClient):
     Thread() {
-    private var connectSelector = Selector.open()
+    companion object {
+        private const val TAG = "${Constant.CLIENT_LOG}_ConnectThread"
+    }
+    private var connectSelector: Selector? = null
     private var connectBlockQueue = LinkedBlockingQueue<Connection>()
-    private var selectorThreadGroup: SelectorThreadGroup? = null
 
-    init {
-        selectorThreadGroup = SelectorThreadGroup(channelNum)
+
+    fun initConfig() {
+        connectSelector = Selector.open()
     }
 
     override fun run() {
+        checkNotNull(connectSelector)
         while (true) {
+            // 处理整个连接线程关闭的情况
+            if (interrupted()) {
+                interruptConnection()
+                Log.d(TAG, "the connectThread is interrupted")
+                return
+            }
             var isHasException = false
             // 调用 SelectorProvider 通过SPI机制 + 反射生成对应的Selector实例
             val connection = connectBlockQueue.take()
+            if (tcpClient.hasSetResponseHandler(connection.channelId)) {
+                Log.d(TAG, "hasSetResponseHandler, continue")
+                continue
+            }
             try {
                 tcpClient.openChannel(connection)
             } catch (e: IOException) {
@@ -59,15 +69,11 @@ class ConnectThread(private val context: Context, channelNum: Int, private val t
             }
 
             if (!isHasException) {
-                val hasSetResponse = connection.responseHandler?.let {
+                connection.responseHandler?.let {
                     tcpClient.registerResponseHandler(connection.channelId, it)
-                } ?: false
-                // 判断是否有监听回调，如果设置了监听才证明首次设置了回调，才开启轮询监听
-                if (hasSetResponse) {
-                    listenConnection(connection.channelId)
-                } else {
-                    Log.e(TcpClient.TAG, "don't set response handler , had set it ")
                 }
+                // 如果设置了监听才证明首次设置了回调，才开启轮询监听
+                listenConnection(connection.channelId)
             }
         }
     }
@@ -94,10 +100,7 @@ class ConnectThread(private val context: Context, channelNum: Int, private val t
                             if (!isConnected(id, true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
-                            //通过 SelectThreadGroup注册通道读操作，在单独线程里面启动读写
-                            tcpClient.getSocketChannel(id)?.let {
-                                selectorThreadGroup?.register(id, it, tcpClient.responseDispatcher)
-                            }
+                            tcpClient.registerWorkerThread(id)
                             Log.i(TcpClient.TAG, "connect success")
                         }
                     }
@@ -117,7 +120,22 @@ class ConnectThread(private val context: Context, channelNum: Int, private val t
                 Log.e(TcpClient.TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
             }
         }
+    }
 
+    /**
+     * 关闭整个连接
+     */
+    private fun interruptConnection() {
+        try {
+            // 关闭读写
+            if (connectSelector != null && connectSelector?.isOpen == true) {
+                connectSelector?.close()
+                connectSelector = null
+                tcpClient.responseDispatcher.clear()
+            }
+        } catch (e: Throwable) {
+            Log.e(TcpClient.TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
+        }
     }
 
     private fun isConnected(id: Int, careNet: Boolean): Boolean {

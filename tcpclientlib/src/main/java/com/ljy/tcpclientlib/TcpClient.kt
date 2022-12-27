@@ -2,18 +2,7 @@ package com.ljy.tcpclientlib
 
 import android.content.Context
 import android.util.Log
-import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
-import com.ljy.tcpclientlib.receiver.ResponseHandler
 import com.ljy.tcpclientlib.seeker.ConnectThread
-import java.io.IOException
-import java.nio.channels.AlreadyConnectedException
-import java.nio.channels.ClosedChannelException
-import java.nio.channels.ConnectionPendingException
-import java.nio.channels.SelectionKey
-import java.nio.channels.Selector
-import java.nio.channels.SocketChannel
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -28,11 +17,10 @@ class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
         const val TAG = "${Constant.CLIENT_LOG}_TcpClient"
     }
 
-    private var connectSelector = Selector.open()
     private var isStartThread = AtomicBoolean(false)
 
     private var connectBlockQueue = LinkedBlockingQueue<Connection>()
-    private var connectThread = ConnectThread(context, num, this)
+    private var connectThread = ConnectThread(context, this)
 
     override fun connection(connection: Connection) {
         connectBlockQueue.put(connection)
@@ -45,6 +33,7 @@ class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
      * 单线程轮询connect操作，通过BlockQueue调用连接
      */
     private fun loop() {
+        connectThread.initConfig()
         connectThread.start()
     }
 
@@ -55,13 +44,10 @@ class TcpClient(context: Context, num: Int) : AbsTcpClient(context, num){
 
     override fun disconnect() {
         try {
-            // 关闭读写
-            if (connectSelector != null && connectSelector?.isOpen == true) {
-                connectSelector?.close()
-                connectSelector = null
-                connectThread.interrupt()
-            }
+            // 关闭连接线程
+            connectThread.interrupt()
             selectorThreadGroup?.disconnect()
+            isStartThread.set(false)
         } catch (e: Throwable) {
             Log.e(TAG, "socket close failed cause: ${e.message}\n  stack ${e.stackTrace}")
         }
