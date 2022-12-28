@@ -12,7 +12,7 @@ import java.util.concurrent.Executors
  * @Date 2022/12/14
  * @Description
  **/
-class SelectorThreadGroup() {
+class SelectorThreadGroup {
 
     companion object {
         private const val TAG = "${Constant.CLIENT_LOG}_SelectorThreadGroup"
@@ -20,13 +20,6 @@ class SelectorThreadGroup() {
 
     private val selectorThreads = ConcurrentHashMap<Int, WorkerRunnable>()
     private val executorService: ExecutorService = Executors.newCachedThreadPool()
-
-//    init {
-//        for(i in 0 until num) {
-//            selectorThreads[i] = SelectorThread()
-//            Thread(selectorThreads[i]).start()
-//        }
-//    }
 
     fun register(id: Int, socketChannel: SocketChannel, responseDispatcher: ConcurrentHashMap<Int, ResponseHandler>) {
         try {

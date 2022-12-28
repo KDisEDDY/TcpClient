@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -48,7 +49,7 @@ class MainActivity : ComponentActivity() {
             mutableStateOf("10.9.30.63")
         }
         ConstraintLayout {
-            val (ipText, buttonLayout) = createRefs()
+            val (ipText, connectLayout, disconnectLayout) = createRefs()
             TextField(value = text, onValueChange = {
                 text = it
             },
@@ -59,11 +60,15 @@ class MainActivity : ComponentActivity() {
                     top.linkTo(parent.top)
                 }
             )
-            Row(modifier = Modifier.constrainAs(buttonLayout) {
+            Row(modifier = Modifier.constrainAs(connectLayout) {
                 top.linkTo(ipText.bottom, margin = 10.dp)
             }) {
+                var channelId by remember {
+                    mutableStateOf("8007")
+                }
+                ChannelIdTextField(channelId, onIdChanged = {channelId = it})
                 TextButton(onClick = {
-                    tcpClient.connection(Connection(text, 8007, 8007, object : ResponseHandler {
+                    tcpClient.connection(Connection(text, 8007, channelId.toIntOrNull() ?: 0, object : ResponseHandler {
                         override fun onWriteResponse(tcpPackage: TcpPackage) {
 
                         }
@@ -76,14 +81,37 @@ class MainActivity : ComponentActivity() {
                 }) {
                     Text("connect to server")
                 }
+            }
+
+            Row(modifier = Modifier.constrainAs(disconnectLayout) {
+                top.linkTo(connectLayout.bottom, margin = 10.dp)
+            }) {
+                var channelId by remember {
+                    mutableStateOf("8007")
+                }
+                ChannelIdTextField(channelId, onIdChanged = {channelId = it})
 
                 TextButton(onClick = {
-                    tcpClient.disconnectAll()
+                    val id = channelId.toIntOrNull() ?: 0
+                    if (id == 0) {
+                        tcpClient.disconnectAll()
+                    } else {
+                        tcpClient.disconnect(id)
+                    }
                 }) {
                     Text("disconnect to server")
                 }
+
+
             }
         }
-
         }
+
+    @Composable
+    fun ChannelIdTextField(channelId: String, onIdChanged: (String) -> Unit) {
+        TextField(value = channelId, onValueChange = onIdChanged,
+            label = {
+                Text(text = "channelId")
+            })
+    }
     }

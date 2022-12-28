@@ -5,6 +5,7 @@ import com.ljy.tcpclientlib.Constant
 import com.ljy.tcpclientlib.TcpClient
 import com.ljy.tcpclientlib.io.NIO
 import com.ljy.tcpclientlib.seeker.ConnectThread
+import java.io.IOException
 import java.nio.channels.ClosedChannelException
 import java.nio.channels.ClosedSelectorException
 import java.nio.channels.SelectionKey
@@ -88,12 +89,17 @@ class WorkerRunnable : Runnable {
 
     fun disconnect(isNeedRemoveHandler: Boolean = false) {
         if (selector.isOpen && isConnection.compareAndSet(true, false)) {
-            selector.close()
-            socketChannel?.close()
-            socketChannel = null
+            try {
+                selector.close()
+                socketChannel?.close()
+                socketChannel = null
+            } catch (e: IOException) {
+                Log.e(TAG, "disconnecting when a IOException occur " + e.message)
+            }
             if (isNeedRemoveHandler) {
                 responseDispatcher?.remove(channelId)
             }
+            Log.i(TAG, "the runnable is disconnected ")
         }
     }
 

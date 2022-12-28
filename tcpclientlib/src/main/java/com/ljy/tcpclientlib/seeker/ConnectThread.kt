@@ -121,8 +121,6 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
             try {
                 // 关闭读写
                 if (connectSelector != null && connectSelector?.isOpen == true) {
-                    connectSelector?.close()
-                    connectSelector = null
                     tcpClient.responseDispatcher.remove(id)
                 }
             } catch (e: Throwable) {
