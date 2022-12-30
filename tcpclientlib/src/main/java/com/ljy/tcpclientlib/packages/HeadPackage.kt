@@ -11,7 +11,7 @@ class HeadPackage : IHeadPackage, Serializable {
         headBuffer = ByteBuffer.allocate(IHeadPackage.LENGTH)
     }
 
-    constructor(byteBuffer: ByteBuffer?) {
+    constructor(byteBuffer: ByteBuffer) {
         headBuffer = byteBuffer
     }
 

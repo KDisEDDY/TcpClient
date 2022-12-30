@@ -49,6 +49,14 @@ class WorkerRunnable : Runnable {
         try {
             if (isConnection.compareAndSet(false, true)) {
                 while (true) {
+                    while (!queue.isEmpty()) {
+                        queue.take()?.let {
+                            this.socketChannel = it
+                            it.configureBlocking(false)
+                            it.register(selector, SelectionKey.OP_READ)
+                        }
+
+                    }
                     val num = selector.select()  // 阻塞，外部通过wakeup当前selector来唤醒
                     if (!isConnection.get()) {
                         // 这里再判断一遍的原因是外部已经触发了关闭通道的操作，由于线程可能还在执行中，直接在这里关闭
@@ -66,14 +74,7 @@ class WorkerRunnable : Runnable {
                             }
                         }
                     }
-                    while (!queue.isEmpty()) {
-                        queue.take()?.let {
-                            this.socketChannel = it
-                            it.configureBlocking(false)
-                            it.register(selector, SelectionKey.OP_READ)
-                        }
 
-                    }
                 }
             }
         }  catch (e: ClosedChannelException) {
@@ -82,25 +83,28 @@ class WorkerRunnable : Runnable {
             Log.e(TAG, "this selector is closed :" + e.message)
         } catch (t: Throwable) {
             Log.e(TAG, "run thread failed ${t.message}")
+            close(true)
         }
-
-
     }
 
     fun disconnect(isNeedRemoveHandler: Boolean = false) {
         if (selector.isOpen && isConnection.compareAndSet(true, false)) {
-            try {
-                selector.close()
-                socketChannel?.close()
-                socketChannel = null
-            } catch (e: IOException) {
-                Log.e(TAG, "disconnecting when a IOException occur " + e.message)
-            }
-            if (isNeedRemoveHandler) {
-                responseDispatcher?.remove(channelId)
-            }
-            Log.i(TAG, "the runnable is disconnected ")
+            close(isNeedRemoveHandler)
         }
+    }
+
+    private fun close(isNeedRemoveHandler: Boolean = false) {
+        try {
+            selector.close()
+            socketChannel?.close()
+            socketChannel = null
+        } catch (e: IOException) {
+            Log.e(TAG, "disconnecting when a IOException occur " + e.message)
+        }
+        if (isNeedRemoveHandler) {
+            responseDispatcher?.remove(channelId)
+        }
+        Log.i(TAG, "the runnable is disconnected ")
     }
 
     private fun readOps(key: SelectionKey) {

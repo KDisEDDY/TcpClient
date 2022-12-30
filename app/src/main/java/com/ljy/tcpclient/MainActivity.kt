@@ -1,6 +1,7 @@
 package com.ljy.tcpclient
 
 import android.os.Bundle
+import android.util.Log
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,7 +47,7 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun ButtonLayout() {
         var text by remember {
-            mutableStateOf("10.9.30.63")
+            mutableStateOf("10.9.31.121")
         }
         ConstraintLayout {
             val (ipText, connectLayout, disconnectLayout) = createRefs()
@@ -70,11 +71,12 @@ class MainActivity : ComponentActivity() {
                 TextButton(onClick = {
                     tcpClient.connection(Connection(text, 8007, channelId.toIntOrNull() ?: 0, object : ResponseHandler {
                         override fun onWriteResponse(tcpPackage: TcpPackage) {
-
                         }
 
                         override fun onReadResponse(tcpPackage: TcpPackage) {
-
+                            tcpPackage.bodyPackage?.let {
+                                Log.d("MainActivity", it.toString())
+                            }
                         }
 
                     }))

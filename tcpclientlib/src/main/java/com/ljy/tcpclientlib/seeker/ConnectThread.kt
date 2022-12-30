@@ -109,6 +109,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                             if (!isConnected(id, true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
+                            // todo 这里有可能太慢了导致无法监听到read操作
                             tcpClient.registerWorkerThread(id)
                             Log.i(TAG, "connect success")
                         }
