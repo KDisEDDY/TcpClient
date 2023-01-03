@@ -8,4 +8,6 @@ package com.ljy.tcpclientlib
 object Constant {
 
     const val CLIENT_LOG = "EDDYTcpClient"
+
+    const val SELECT_TIMEOUT = 3000L
 }

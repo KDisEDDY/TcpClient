@@ -12,6 +12,8 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
     Thread() {
     companion object {
         private const val TAG = "${Constant.CLIENT_LOG}_ConnectThread"
+        //
+        private const val SELECT_CONNECTING_MAX = 10000
     }
     private var connectSelector: Selector? = null
 
@@ -93,10 +95,13 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
 
     private fun listenConnection(id: Int) {
         try {
+            // 这里会有Epoll空轮询问题，为了避免有connection操作被遗漏，通过hasConnected变量来判断是否有处理了connection，没有的话继续轮询；
+            // 当hasConnected为true，退出轮询，回到connectBlockQueue 等待下一个connection的接入
             var hasConnected = false
+            var cnt = 0
             // 当前线程轮询，查询selector有哪些key可以
-            while (true) {
-                connectSelector?.select()
+            while (cnt < SELECT_CONNECTING_MAX) {
+                connectSelector?.select(Constant.SELECT_TIMEOUT)
                 val iterator = connectSelector?.selectedKeys()?.iterator()
                 while (iterator?.hasNext() != false) {
                     Log.i(TAG, "listen to connection channelId: $id")
@@ -113,7 +118,6 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                             if (!isConnected(id, true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
-                            // todo 这里有可能太慢了导致无法监听到read操作
 //                            tcpClient.registerWorkerThread(id)
                             Log.i(TAG, "connect success")
                             hasConnected = true
@@ -124,6 +128,12 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                     Log.i(TAG, "has built the connection channel id $id, return the function")
                     return
                 }
+                cnt++
+            }
+            if (cnt >= SELECT_CONNECTING_MAX) {
+                // 当超过了connection 操作的轮询次数SELECT_CONNECTING_MAX， 证明当前链接是有问题的，直接关闭
+                Log.e(TAG, "the connect has reach the max select invocation count, it's WRONG, disconnect")
+                tcpClient.disconnect(id)
             }
         } catch(e: Throwable) {
             Log.e(TAG, "listen connect fail ${e.message}")

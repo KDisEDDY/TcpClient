@@ -2,6 +2,7 @@ package com.ljy.tcpclientlib.worker
 
 import android.util.Log
 import com.ljy.tcpclientlib.Constant
+import com.ljy.tcpclientlib.Constant.SELECT_TIMEOUT
 import com.ljy.tcpclientlib.TcpClient
 import com.ljy.tcpclientlib.io.NIO
 import com.ljy.tcpclientlib.seeker.ConnectThread
@@ -49,7 +50,7 @@ class WorkerRunnable : Runnable {
         try {
             if (isConnection.compareAndSet(false, true)) {
                 while (true) {
-                    val num = selector.select()  // 阻塞，外部通过wakeup当前selector来唤醒
+                    val num = selector.select(SELECT_TIMEOUT)  // 阻塞，外部通过wakeup当前selector来唤醒
                     Log.i(TAG, "selector is wake up, num $num")
                     if (!isConnection.get()) {
                         // 这里再判断一遍的原因是外部已经触发了关闭通道的操作，由于线程可能还在执行中，直接在这里关闭
