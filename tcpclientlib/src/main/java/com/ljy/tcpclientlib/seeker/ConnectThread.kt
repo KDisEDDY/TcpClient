@@ -58,6 +58,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                     connectSelector,
                     SelectionKey.OP_CONNECT
                 )
+                tcpClient.registerWorkerThread(connection.channelId)
                 // 由于是异步模式，链接成功的判断不准确
                 tcpClient.connect(connection.channelId)
             } catch (e: AlreadyConnectedException) {
@@ -83,12 +84,16 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                 }
                 // 如果设置了监听才证明首次设置了回调，才开启轮询监听
                 listenConnection(connection.channelId)
+            } else {
+                // 有问题了就关闭当前的channel connection
+                tcpClient.disconnect(connection.channelId)
             }
         }
     }
 
     private fun listenConnection(id: Int) {
         try {
+            var hasConnected = false
             // 当前线程轮询，查询selector有哪些key可以
             while (true) {
                 connectSelector?.select()
@@ -105,17 +110,20 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                             while(!channel.finishConnect()) {
                                 // 有可能当前通道还没连接完成，轮询去等待连接成功
                             }
-
                             if (!isConnected(id, true)) {
                                 throw ConnectionFailedException("maybe network is not available")
                             }
                             // todo 这里有可能太慢了导致无法监听到read操作
-                            tcpClient.registerWorkerThread(id)
+//                            tcpClient.registerWorkerThread(id)
                             Log.i(TAG, "connect success")
+                            hasConnected = true
                         }
                     }
                 }
-                return
+                if (hasConnected) {
+                    Log.i(TAG, "has built the connection channel id $id, return the function")
+                    return
+                }
             }
         } catch(e: Throwable) {
             Log.e(TAG, "listen connect fail ${e.message}")
@@ -147,6 +155,9 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
     }
 
     private fun isConnected(id: Int, careNet: Boolean): Boolean {
-        return tcpClient.getSocketChannel(id)?.isConnected == true && if (careNet) NetUtils.netIsAvailable(context) else true
+        val isConnected = tcpClient.getSocketChannel(id)?.isConnected == true
+        val isNetAvailable = NetUtils.netIsAvailable(context)
+        Log.i(TAG, "isConnected $isConnected isNetAvailable $isNetAvailable ")
+        return isConnected && isNetAvailable
     }
 }

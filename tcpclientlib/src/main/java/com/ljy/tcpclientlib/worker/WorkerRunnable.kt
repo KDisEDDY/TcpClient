@@ -49,15 +49,8 @@ class WorkerRunnable : Runnable {
         try {
             if (isConnection.compareAndSet(false, true)) {
                 while (true) {
-                    while (!queue.isEmpty()) {
-                        queue.take()?.let {
-                            this.socketChannel = it
-                            it.configureBlocking(false)
-                            it.register(selector, SelectionKey.OP_READ)
-                        }
-
-                    }
                     val num = selector.select()  // 阻塞，外部通过wakeup当前selector来唤醒
+                    Log.i(TAG, "selector is wake up, num $num")
                     if (!isConnection.get()) {
                         // 这里再判断一遍的原因是外部已经触发了关闭通道的操作，由于线程可能还在执行中，直接在这里关闭
                         Log.i(TAG, "the thread of channel is closing ")
@@ -74,7 +67,16 @@ class WorkerRunnable : Runnable {
                             }
                         }
                     }
+                    while (!queue.isEmpty()) {
+                        Log.i(TAG, "get a runnable")
+                        queue.take()?.let {
+                            this.socketChannel = it.also {channel ->
+                                channel.configureBlocking(false)
+                                channel.register(selector, SelectionKey.OP_READ)
+                            }
+                        }
 
+                    }
                 }
             }
         }  catch (e: ClosedChannelException) {
@@ -108,6 +110,7 @@ class WorkerRunnable : Runnable {
     }
 
     private fun readOps(key: SelectionKey) {
+        Log.i(TAG, "read ops")
         if (nio == null) {
             (key.channel() as? SocketChannel)?.let {
                 nio = NIO(it)

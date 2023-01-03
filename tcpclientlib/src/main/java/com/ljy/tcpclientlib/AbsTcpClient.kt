@@ -22,9 +22,9 @@ abstract class AbsTcpClient(val context: Context) : IConnection, IDisconnect {
 
     protected var selectorThreadGroup: SelectorThreadGroup? = null
 
-    private var inetSocketAddressMap = mutableMapOf<Int, InetSocketAddress>()
+    private var inetSocketAddressMap = ConcurrentHashMap<Int, InetSocketAddress>()
 
-    private val socketChannelMap = mutableMapOf<Int, SocketChannel>()
+    private val socketChannelMap = ConcurrentHashMap<Int, SocketChannel>()
 
     var responseDispatcher = ConcurrentHashMap<Int, ResponseHandler>()
 
