@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.ljy.tcpclientlib.*
 import com.ljy.tcpclientlib.exceptions.ConnectionFailedException
+import com.ljy.tcpclientlib.io.NIO
+import com.ljy.tcpclientlib.worker.WorkerRunnable
 import java.io.IOException
 import java.nio.channels.*
 import java.util.concurrent.LinkedBlockingQueue
@@ -13,7 +15,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
     companion object {
         private const val TAG = "${Constant.CLIENT_LOG}_ConnectThread"
         //
-        private const val SELECT_CONNECTING_MAX = 10000
+        private const val SELECT_CONNECTING_THRESHOLD = 512
     }
     private var connectSelector: Selector? = null
 
@@ -100,7 +102,7 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
             var hasConnected = false
             var cnt = 0
             // 当前线程轮询，查询selector有哪些key可以
-            while (cnt < SELECT_CONNECTING_MAX) {
+            while (cnt < SELECT_CONNECTING_THRESHOLD) {
                 connectSelector?.select(Constant.SELECT_TIMEOUT)
                 val iterator = connectSelector?.selectedKeys()?.iterator()
                 while (iterator?.hasNext() != false) {
@@ -130,8 +132,8 @@ class ConnectThread(private val context: Context, private val tcpClient: AbsTcpC
                 }
                 cnt++
             }
-            if (cnt >= SELECT_CONNECTING_MAX) {
-                // 当超过了connection 操作的轮询次数SELECT_CONNECTING_MAX， 证明当前链接是有问题的，直接关闭
+            if (cnt >= SELECT_CONNECTING_THRESHOLD) {
+                // 当超过了connection 操作的轮询次数SELECT_CONNECTING_THRESHOLD， 证明当前链接是有问题的，直接关闭
                 Log.e(TAG, "the connect has reach the max select invocation count, it's WRONG, disconnect")
                 tcpClient.disconnect(id)
             }

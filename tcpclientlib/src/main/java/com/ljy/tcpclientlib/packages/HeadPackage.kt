@@ -32,13 +32,13 @@ class HeadPackage : IHeadPackage, Serializable {
         get() {
             synchronized(headBuffer!!) {
                 headBuffer!!.position(1)
-                return headBuffer!!.short
+                return headBuffer!!.getShort(1)
             }
         }
-        set(code) {
+        set(protocolCode) {
             synchronized(headBuffer!!) {
                 headBuffer!!.position(1)
-                headBuffer!!.putShort(code)
+                headBuffer!!.putShort(protocolCode)
             }
         }
     override var protocolVersion: Byte

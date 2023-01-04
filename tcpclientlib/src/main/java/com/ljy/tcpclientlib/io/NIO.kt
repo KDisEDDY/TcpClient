@@ -58,6 +58,8 @@ class NIO(socketChannel: SocketChannel?) : IRead, IWrite {
             val headBuffer = ByteBuffer.allocate(LENGTH)
             read(headBuffer, LENGTH)
             headPackage = HeadPackage(headBuffer)
+            headPackage.toByteBuffer()?.flip()
+            Log.i(TAG, "the head package is $headPackage")
             bodylength = headPackage.packageBodyLength
         } catch (e: Exception) {
             Log.i(TAG, "read thread was droped package in analytic headpackage cause:" + e.message)
