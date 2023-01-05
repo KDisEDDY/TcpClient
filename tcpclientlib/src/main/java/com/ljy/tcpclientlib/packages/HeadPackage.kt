@@ -32,7 +32,7 @@ class HeadPackage : IHeadPackage, Serializable {
         get() {
             synchronized(headBuffer!!) {
                 headBuffer!!.position(1)
-                return headBuffer!!.getShort(1)
+                return headBuffer!!.getShort()
             }
         }
         set(protocolCode) {
