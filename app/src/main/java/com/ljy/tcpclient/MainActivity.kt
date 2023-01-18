@@ -19,8 +19,17 @@ import com.ljy.tcpclientlib.Connection
 import com.ljy.tcpclientlib.TcpClient
 import com.ljy.tcpclientlib.packages.TcpPackage
 import com.ljy.tcpclientlib.worker.ResponseHandler
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class MainActivity : ComponentActivity() {
+
+    companion object {
+        const val TAG = "MainActivity"
+    }
 
     lateinit var tcpClient: TcpClient
     override fun onCreate(savedInstanceState: Bundle?) {
